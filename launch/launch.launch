@@ -1,0 +1,21 @@
+<launch>
+  <param name="world_frame" type="string" value="camera_init"/>
+  <param name="LIDAR_frame" type="string" value="body"/>
+  <param name="camera_frame" type="string" value="camera"/>
+  <param name="camera_topic" type="string" value="/trigger_points"/>
+  <param name="support_area_right" type="double" value="0.165"/>
+
+<!-- transform_T_velodyne_camera.setOrigin(tf2::Vector3(0.15, 0, -0.4024));
+  transform_T_velodyne_camera.setRotation(tf2::Quaternion(0, 0.973383, 0, 0.229184)); -->
+
+<!-- parent_link, link -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="T_lidar_helios" args="0.15 0 -0.4024 0, 0.973383, 0, 0.229184 /body /camera"/>  
+
+  <node pkg="global_map" type="global_map_node" name="global_map_node" output="screen" />
+  <!-- Launch visualizations for the resulting elevation map -->
+  <!-- <include file="$(find path_planning)/launch/path_smooth.launch" /> -->
+
+  <!-- Launch RViz with the demo configuration -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find global_map)/rviz/rviz.rviz" />
+
+</launch>
