@@ -4,29 +4,56 @@
 #include <pcl/registration/gicp.h>
 #include <tf2_eigen/tf2_eigen.h>
 #include <glog/logging.h>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <tf2/LinearMath/Quaternion.h>
 globalMapConstructor::globalMapConstructor(ros::NodeHandle &n):nh(n)
 {
-    nh.getParam("camera_topic", camera_topic);
-    nh.getParam("world_frame", world_frame);
-    nh.getParam("LIDAR_frame", LIDAR_frame);
-    nh.getParam("camera_frame", camera_frame);
-    camera_topic = "/trigger_points";
+    nh.getParam("/camera/depth/color/points", camera_topic);
+    nh.getParam("camera_init", world_frame);
+    nh.getParam("body", LIDAR_frame);
+    nh.getParam("camera_depth_optical_frame", camera_frame);
+    camera_topic = "/camera/depth/color/points";
     sub_camera = nh.subscribe(camera_topic, 1, &globalMapConstructor::callback_camera, this);
     pub_globalcloud = nh.advertise<sensor_msgs::PointCloud2>("/global_map", 1);
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>();
     transform_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     odom_camera.setIdentity();
 
+    // 相机到相机安装孔的位姿
+    tf2::Transform camera_T_cameraInstall;
+    tf2::Vector3 camera_t_cameraInstall(0, -0.001, 0.0215);
+    camera_T_cameraInstall.setOrigin(camera_t_cameraInstall);
+
+    // 相机安装孔到激光雷达安装孔的位姿
+    tf2::Transform cameraInstall_T_lidarInstall;
+    tf2::Vector3 cameraInstall_t_lidarInstall(0.11211, 0, 0.0175);
+    Eigen::Matrix3d cameraInstall_R_lidarInstall;
+    cameraInstall_R_lidarInstall<<0, -0.866, 0.5, -1, 0, 0, 0, -0.5, -0.866;
+    Eigen::Quaterniond QD(cameraInstall_R_lidarInstall);
+    tf2::Quaternion cameraInstall_Q_lidarInstall;
+    cameraInstall_Q_lidarInstall.setW(QD.w());
+    cameraInstall_Q_lidarInstall.setX(QD.x());
+    cameraInstall_Q_lidarInstall.setY(QD.y());
+    cameraInstall_Q_lidarInstall.setZ(QD.z());
+    cameraInstall_T_lidarInstall.setOrigin(cameraInstall_t_lidarInstall);
+    cameraInstall_T_lidarInstall.setRotation(cameraInstall_Q_lidarInstall);
+
+    // 激光雷达安装孔到激光雷达点云
+    tf2::Transform lidar_T_lidarInstall;
+    tf2::Vector3 lidar_t_lidarInstall(0, 0, 0.047);
+    lidar_T_lidarInstall.setOrigin(lidar_t_lidarInstall);
     // <node pkg="tf2_ros" type="static_transform_publisher" name="T_lidar_helios" args="0.15 0 -0.4024 0 0.973383 0.0 0.229184 /body /camera"/>  
-    tf2::Vector3 t(0.15, 0, -0.4024);
-    tf2::Quaternion q(0, 0.973383, 0, 0.229184);
-    T_lidar_camera.setOrigin(t);
-    T_lidar_camera.setRotation(q);
+    // tf2::Vector3 t(0.15, 0, -0.4024);
+    // tf2::Quaternion q(0, 0.973383, 0, 0.229184);
+    // camera_T_lidar.setOrigin(t);
+    // camera_T_lidar.setRotation(q);
+
+    camera_T_lidar = camera_T_cameraInstall * cameraInstall_T_lidarInstall * lidar_T_lidarInstall.inverse();
 #ifdef DEBUG
-    LOG(INFO)<<T_lidar_camera.getOrigin().getX()<<" "<<T_lidar_camera.getOrigin().getY()<<" "<<T_lidar_camera.getOrigin().getZ()<<" "<<T_lidar_camera.getRotation().getX()<<" "<<T_lidar_camera.getRotation().getY()<<" "<<T_lidar_camera.getRotation().getZ()<<" "<<T_lidar_camera.getRotation().getW();
+    LOG(INFO)<<camera_T_lidar.getOrigin().getX()<<" "<<camera_T_lidar.getOrigin().getY()<<" "<<camera_T_lidar.getOrigin().getZ()<<" "<<camera_T_lidar.getRotation().getX()<<" "<<camera_T_lidar.getRotation().getY()<<" "<<camera_T_lidar.getRotation().getZ()<<" "<<camera_T_lidar.getRotation().getW();
 #endif
     // odom_last.setIdentity();
-
     // geometry_msgs::TransformStamped transformStamped;
     // try
     // {
@@ -62,9 +89,9 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
     {
         std::cerr << ex.what() << '\n';
     }
-    tf2::Transform T_lidar_camera;
-    tf2::fromMsg(transformStamped_test.transform, T_lidar_camera);
-    LOG(INFO)<<"T_lidar_camera: "<<T_lidar_camera.getOrigin().x()<<" "<<T_lidar_camera.getOrigin().y()<<" "<<T_lidar_camera.getOrigin().z()<<" "<<T_lidar_camera.getRotation().x()<<" "<<T_lidar_camera.getRotation().y()<<" "<<T_lidar_camera.getRotation().z()<<" "<<T_lidar_camera.getRotation().w();
+    tf2::Transform camera_T_lidar;
+    tf2::fromMsg(transformStamped_test.transform, camera_T_lidar);
+    LOG(INFO)<<"camera_T_lidar: "<<camera_T_lidar.getOrigin().x()<<" "<<camera_T_lidar.getOrigin().y()<<" "<<camera_T_lidar.getOrigin().z()<<" "<<camera_T_lidar.getRotation().x()<<" "<<camera_T_lidar.getRotation().y()<<" "<<camera_T_lidar.getRotation().z()<<" "<<camera_T_lidar.getRotation().w();
 #endif
     geometry_msgs::TransformStamped transformStamped;
     try
@@ -116,7 +143,7 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
 
         pcl::transformPointCloud(*filtered_cloud, total_cloud, transformation_matrix);
         total_cloud += last_cloud;
-        pcl::io::savePCDFileASCII("/home/lichao/catkin_pathplanning/src/global_map/data/" + std::to_string(debug_index) + ".pcd", total_cloud);
+        pcl::io::savePCDFileASCII("/home/lichao/navigation/src/global_map/data/" + std::to_string(debug_index) + ".pcd", total_cloud);
         debug_index++;
 #endif
         // Extract translation
@@ -156,5 +183,5 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
 
 globalMapConstructor::~globalMapConstructor()
 {
-    pcl::io::savePCDFileASCII("/home/lichao/catkin_pathplanning/src/global_map/data/globalmap.pcd", global_cloud);
+    pcl::io::savePCDFileASCII("/home/lichao/navigation/src/global_map/data/globalmap.pcd", global_cloud);
 }

@@ -1,9 +1,8 @@
 <launch>
   <param name="world_frame" type="string" value="camera_init"/>
   <param name="LIDAR_frame" type="string" value="body"/>
-  <param name="camera_frame" type="string" value="camera"/>
-  <param name="camera_topic" type="string" value="/trigger_points"/>
-  <param name="support_area_right" type="double" value="0.165"/>
+  <param name="camera_frame" type="string" value="camera_depth_optical_frame"/>
+  <param name="camera_topic" type="string" value="/camera/depth/color/points"/>
 
 <!-- transform_T_velodyne_camera.setOrigin(tf2::Vector3(0.15, 0, -0.4024));
   transform_T_velodyne_camera.setRotation(tf2::Quaternion(0, 0.973383, 0, 0.229184)); -->
