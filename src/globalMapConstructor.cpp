@@ -21,35 +21,35 @@ globalMapConstructor::globalMapConstructor(ros::NodeHandle &n):nh(n)
     odom_camera.setIdentity();
 
     // 相机到相机安装孔的位姿
-    tf2::Transform camera_T_cameraInstall;
-    tf2::Vector3 camera_t_cameraInstall(0, -0.001, 0.0215);
-    camera_T_cameraInstall.setOrigin(camera_t_cameraInstall);
+    // tf2::Transform camera_T_cameraInstall;
+    // tf2::Vector3 camera_t_cameraInstall(0, -0.001, 0.0215);
+    // camera_T_cameraInstall.setOrigin(camera_t_cameraInstall);
 
-    // 相机安装孔到激光雷达安装孔的位姿
-    tf2::Transform cameraInstall_T_lidarInstall;
-    tf2::Vector3 cameraInstall_t_lidarInstall(0.11211, 0, 0.0175);
-    Eigen::Matrix3d cameraInstall_R_lidarInstall;
-    cameraInstall_R_lidarInstall<<0, -0.866, 0.5, -1, 0, 0, 0, -0.5, -0.866;
-    Eigen::Quaterniond QD(cameraInstall_R_lidarInstall);
-    tf2::Quaternion cameraInstall_Q_lidarInstall;
-    cameraInstall_Q_lidarInstall.setW(QD.w());
-    cameraInstall_Q_lidarInstall.setX(QD.x());
-    cameraInstall_Q_lidarInstall.setY(QD.y());
-    cameraInstall_Q_lidarInstall.setZ(QD.z());
-    cameraInstall_T_lidarInstall.setOrigin(cameraInstall_t_lidarInstall);
-    cameraInstall_T_lidarInstall.setRotation(cameraInstall_Q_lidarInstall);
+    // // 相机安装孔到激光雷达安装孔的位姿
+    // tf2::Transform cameraInstall_T_lidarInstall;
+    // tf2::Vector3 cameraInstall_t_lidarInstall(0.11211, 0, 0.0175);
+    // Eigen::Matrix3d cameraInstall_R_lidarInstall;
+    // cameraInstall_R_lidarInstall<<0, -0.866, 0.5, -1, 0, 0, 0, -0.5, -0.866;
+    // Eigen::Quaterniond QD(cameraInstall_R_lidarInstall);
+    // tf2::Quaternion cameraInstall_Q_lidarInstall;
+    // cameraInstall_Q_lidarInstall.setW(QD.w());
+    // cameraInstall_Q_lidarInstall.setX(QD.x());
+    // cameraInstall_Q_lidarInstall.setY(QD.y());
+    // cameraInstall_Q_lidarInstall.setZ(QD.z());
+    // cameraInstall_T_lidarInstall.setOrigin(cameraInstall_t_lidarInstall);
+    // cameraInstall_T_lidarInstall.setRotation(cameraInstall_Q_lidarInstall);
 
-    // 激光雷达安装孔到激光雷达点云
-    tf2::Transform lidar_T_lidarInstall;
-    tf2::Vector3 lidar_t_lidarInstall(0, 0, 0.047);
-    lidar_T_lidarInstall.setOrigin(lidar_t_lidarInstall);
+    // // 激光雷达安装孔到激光雷达点云
+    // tf2::Transform lidar_T_lidarInstall;
+    // tf2::Vector3 lidar_t_lidarInstall(0, 0, 0.047);
+    // lidar_T_lidarInstall.setOrigin(lidar_t_lidarInstall);
     // <node pkg="tf2_ros" type="static_transform_publisher" name="T_lidar_helios" args="0.15 0 -0.4024 0 0.973383 0.0 0.229184 /body /camera"/>  
     // tf2::Vector3 t(0.15, 0, -0.4024);
     // tf2::Quaternion q(0, 0.973383, 0, 0.229184);
     // camera_T_lidar.setOrigin(t);
     // camera_T_lidar.setRotation(q);
 
-    camera_T_lidar = camera_T_cameraInstall * cameraInstall_T_lidarInstall * lidar_T_lidarInstall.inverse();
+    // camera_T_lidar = camera_T_cameraInstall * cameraInstall_T_lidarInstall * lidar_T_lidarInstall.inverse();
 #ifdef DEBUG
     LOG(INFO)<<camera_T_lidar.getOrigin().getX()<<" "<<camera_T_lidar.getOrigin().getY()<<" "<<camera_T_lidar.getOrigin().getZ()<<" "<<camera_T_lidar.getRotation().getX()<<" "<<camera_T_lidar.getRotation().getY()<<" "<<camera_T_lidar.getRotation().getZ()<<" "<<camera_T_lidar.getRotation().getW();
 #endif
