@@ -7,12 +7,16 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <tf2/LinearMath/Quaternion.h>
+#include <chrono>
 globalMapConstructor::globalMapConstructor(ros::NodeHandle &n):nh(n)
 {
     nh.getParam("/camera/depth/color/points", camera_topic);
     nh.getParam("camera_init", world_frame);
     nh.getParam("body", LIDAR_frame);
     nh.getParam("camera_depth_optical_frame", camera_frame);
+    camera_frame = "camera_depth_optical_frame";
+    LIDAR_frame = "body";
+    world_frame = "camera_init";
     camera_topic = "/camera/depth/color/points";
     sub_camera = nh.subscribe(camera_topic, 1, &globalMapConstructor::callback_camera, this);
     pub_globalcloud = nh.advertise<sensor_msgs::PointCloud2>("/global_map", 1);
@@ -70,15 +74,20 @@ globalMapConstructor::globalMapConstructor(ros::NodeHandle &n):nh(n)
 
 void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::ConstPtr msg)
 {
-    cout<<"camera callback"<<endl;
+    // if (test_first)
+    // {
+    //     return;
+    // }
+    // test_first = true;
+    // cout<<"camera callback"<<endl;
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*msg, *cloud);
     pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
     voxel_filter.setInputCloud(cloud);
-    voxel_filter.setLeafSize(0.01, 0.01, 0.01);
+    voxel_filter.setLeafSize(0.02, 0.02, 0.02);
     pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     voxel_filter.filter(*filtered_cloud);
-    LOG(INFO)<<"point size: "<<filtered_cloud->size();
+    // LOG(INFO)<<"point size: "<<filtered_cloud->size();
 #ifdef DEBUG
     geometry_msgs::TransformStamped transformStamped_test;
     try
@@ -96,6 +105,7 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
     geometry_msgs::TransformStamped transformStamped;
     try
     {
+        LOG(INFO)<<"camera_frame: "<<camera_frame<<" world_frame: "<<world_frame;
         transformStamped = tf_buffer_->lookupTransform(camera_frame, world_frame, ros::Time(0));
     }
     catch(tf2::TransformException &ex)
@@ -103,25 +113,36 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
         std::cerr << ex.what() << '\n';
     }
     tf2::Transform T_camera_3dworld;
+    LOG(INFO)<<"T_camera_3dworld: "<<transformStamped.transform.translation.x<<" "<<transformStamped.transform.translation.y<<" "<<transformStamped.transform.translation.z;
+    LOG(INFO)<<"T_camera_3dworld: "<<transformStamped.transform.rotation.x<<" "<<transformStamped.transform.rotation.y<<" "<<transformStamped.transform.rotation.z<<" "<<transformStamped.transform.rotation.w;
     tf2::fromMsg(transformStamped.transform, T_camera_3dworld);
 #ifdef DEBUG
     LOG(INFO)<<"T_camera_3dworld: "<<T_camera_3dworld.getOrigin().x()<<" "<<T_camera_3dworld.getOrigin().y()<<" "<<T_camera_3dworld.getOrigin().z();
 #endif
     // 如果是第一次
     if(last_cloud.empty())
+    // if(!add_first)
     {
         // 将点云转到世界坐标系下
         // tf2::Transform T_world_camera = (T_camera_lidar * T_LIDAR_3dworld).inverse();
+        LOG(INFO)<<"T_camera_3dworld: "<<T_camera_3dworld.getOrigin().x()<<" "<<T_camera_3dworld.getOrigin().y()<<" "<<T_camera_3dworld.getOrigin().z();
+        LOG(INFO)<<"T_camera_3dworld: "<<T_camera_3dworld.getRotation().x()<<" "<<T_camera_3dworld.getRotation().y()<<" "<<T_camera_3dworld.getRotation().z()<<" "<<T_camera_3dworld.getRotation().w();
         geometry_msgs::Transform geometry_transform = tf2::toMsg(T_camera_3dworld.inverse());
         Eigen::Affine3d eigen_transform = tf2::transformToEigen(geometry_transform);
         pcl::transformPointCloud(*filtered_cloud, global_cloud, eigen_transform);
         odom_last = T_camera_3dworld;
+        add_first = true;
     }
     else
     {
         // 当前帧到前一帧得转换猜测
         tf2::Transform guess =  odom_last * T_camera_3dworld.inverse();
         LOG(INFO)<<"guess:"<<guess.getOrigin().x()<<","<<guess.getOrigin().y()<<","<<guess.getOrigin().z();
+        Eigen::Quaterniond quaternion_guess;
+        quaternion_guess.setW(guess.getRotation().w());
+        quaternion_guess.setX(guess.getRotation().x());
+        quaternion_guess.setY(guess.getRotation().y());
+        quaternion_guess.setZ(guess.getRotation().z());
         geometry_msgs::Transform geometry_transform = tf2::toMsg(guess);
         Eigen::Affine3d eigen_transform = tf2::transformToEigen(geometry_transform);
         Eigen::Matrix4f initial_guess = eigen_transform.matrix().cast<float>();
@@ -133,7 +154,12 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
         gicp.setEuclideanFitnessEpsilon(0.01);  //设置收敛条件是均方误差和小于阈值， 停止迭代
         gicp.setMaximumIterations(40);
         pcl::PointCloud<pcl::PointXYZ> final;
+
+        auto start = std::chrono::high_resolution_clock::now();
         gicp.align(final, initial_guess);
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::cout << "ICP took " << std::chrono::duration_cast<std::chrono::milliseconds>(finish - start).count() << "ms" << std::endl;
+        cout<<" 111";
         Eigen::Matrix4f transformation_matrix = gicp.getFinalTransformation();
         // 当前帧到前一帧的变换矩阵
         std::cout << "Final transformation matrix:\n" << transformation_matrix << std::endl;
@@ -172,6 +198,7 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
         pcl::transformPointCloud(*filtered_cloud, trans_cloud, T_world_camera);
         global_cloud += trans_cloud;
     }
+    
     last_cloud = *filtered_cloud;
     // odom_last = odom_camera;
 
