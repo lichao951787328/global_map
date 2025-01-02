@@ -84,7 +84,8 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
     pcl::fromROSMsg(*msg, *cloud);
     pcl::VoxelGrid<pcl::PointXYZ> voxel_filter;
     voxel_filter.setInputCloud(cloud);
-    voxel_filter.setLeafSize(0.02, 0.02, 0.02);
+    // 比较合适的leaf size，配准速度合适
+    voxel_filter.setLeafSize(0.05, 0.05, 0.05);
     pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
     voxel_filter.filter(*filtered_cloud);
     // LOG(INFO)<<"point size: "<<filtered_cloud->size();
