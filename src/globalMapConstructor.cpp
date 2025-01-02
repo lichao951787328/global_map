@@ -50,9 +50,9 @@ globalMapConstructor::globalMapConstructor(ros::NodeHandle &n):nh(n)
     // camera_T_lidar.setRotation(q);
 
     // camera_T_lidar = camera_T_cameraInstall * cameraInstall_T_lidarInstall * lidar_T_lidarInstall.inverse();
-#ifdef DEBUG
-    LOG(INFO)<<camera_T_lidar.getOrigin().getX()<<" "<<camera_T_lidar.getOrigin().getY()<<" "<<camera_T_lidar.getOrigin().getZ()<<" "<<camera_T_lidar.getRotation().getX()<<" "<<camera_T_lidar.getRotation().getY()<<" "<<camera_T_lidar.getRotation().getZ()<<" "<<camera_T_lidar.getRotation().getW();
-#endif
+// #ifdef DEBUG
+//     LOG(INFO)<<camera_T_lidar.getOrigin().getX()<<" "<<camera_T_lidar.getOrigin().getY()<<" "<<camera_T_lidar.getOrigin().getZ()<<" "<<camera_T_lidar.getRotation().getX()<<" "<<camera_T_lidar.getRotation().getY()<<" "<<camera_T_lidar.getRotation().getZ()<<" "<<camera_T_lidar.getRotation().getW();
+// #endif
     // odom_last.setIdentity();
     // geometry_msgs::TransformStamped transformStamped;
     // try
@@ -115,12 +115,12 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
         geometry_msgs::Transform geometry_transform = tf2::toMsg(T_camera_3dworld.inverse());
         Eigen::Affine3d eigen_transform = tf2::transformToEigen(geometry_transform);
         pcl::transformPointCloud(*filtered_cloud, global_cloud, eigen_transform);
-        odom_last = T_camera_3dworld.inverse();
+        odom_last = T_camera_3dworld;
     }
     else
     {
         // 当前帧到前一帧得转换猜测
-        tf2::Transform guess =  odom_last.inverse() * T_camera_3dworld.inverse();
+        tf2::Transform guess =  odom_last * T_camera_3dworld.inverse();
         LOG(INFO)<<"guess:"<<guess.getOrigin().x()<<","<<guess.getOrigin().y()<<","<<guess.getOrigin().z();
         geometry_msgs::Transform geometry_transform = tf2::toMsg(guess);
         Eigen::Affine3d eigen_transform = tf2::transformToEigen(geometry_transform);
@@ -163,10 +163,10 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
         // Combine translation and rotation into a tf2::Transform
         tf2::Transform tf_transform(tf_rotation, tf_translation);
         // odom_camera =  odom_camera * tf_transform;
-        odom_last = odom_last * tf_transform;
+        odom_last = (odom_last.inverse() * tf_transform).inverse();
         
 
-        geometry_msgs::Transform transform_world_camera = tf2::toMsg(odom_last);
+        geometry_msgs::Transform transform_world_camera = tf2::toMsg(odom_last.inverse());
         Eigen::Affine3d T_world_camera = tf2::transformToEigen(transform_world_camera);
         pcl::PointCloud<pcl::PointXYZ> trans_cloud;
         pcl::transformPointCloud(*filtered_cloud, trans_cloud, T_world_camera);
