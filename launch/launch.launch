@@ -8,7 +8,7 @@
   transform_T_velodyne_camera.setRotation(tf2::Quaternion(0, 0.973383, 0, 0.229184)); -->
 
 <!-- parent_link, link -->
-  <node pkg="tf2_ros" type="static_transform_publisher" name="T_lidar_helios" args="0.15 0 -0.4024 0, 0.973383, 0, 0.229184 /body /camera"/>  
+  <node pkg="tf2_ros" type="static_transform_publisher" name="T_lidar_helios" args="0.0886097 -0.001 0.079703 0.683012 -0.683012 0.183015 -0.183015 /body /camera"/>  
 
   <node pkg="global_map" type="global_map_node" name="global_map_node" output="screen" />
   <!-- Launch visualizations for the resulting elevation map -->
