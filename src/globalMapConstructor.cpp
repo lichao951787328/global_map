@@ -138,11 +138,6 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
         // 当前帧到前一帧得转换猜测
         tf2::Transform guess =  odom_last * T_camera_3dworld.inverse();
         LOG(INFO)<<"guess:"<<guess.getOrigin().x()<<","<<guess.getOrigin().y()<<","<<guess.getOrigin().z();
-        Eigen::Quaterniond quaternion_guess;
-        quaternion_guess.setW(guess.getRotation().w());
-        quaternion_guess.setX(guess.getRotation().x());
-        quaternion_guess.setY(guess.getRotation().y());
-        quaternion_guess.setZ(guess.getRotation().z());
         geometry_msgs::Transform geometry_transform = tf2::toMsg(guess);
         Eigen::Affine3d eigen_transform = tf2::transformToEigen(geometry_transform);
         Eigen::Matrix4f initial_guess = eigen_transform.matrix().cast<float>();
@@ -161,6 +156,17 @@ void globalMapConstructor::callback_camera(const sensor_msgs::PointCloud2::Const
         std::cout << "ICP took " << std::chrono::duration_cast<std::chrono::milliseconds>(finish - start).count() << "ms" << std::endl;
         cout<<" 111";
         Eigen::Matrix4f transformation_matrix = gicp.getFinalTransformation();
+
+        // Eigen::Matrix3f rotation_matrix_guess = guess.getBasis().cast<float>();
+        Eigen::Quaternionf quaternion_guess_eigen;
+        quaternion_guess_eigen.w() = guess.getRotation().w();
+        quaternion_guess_eigen.x() = guess.getRotation().x();
+        quaternion_guess_eigen.y() = guess.getRotation().y();
+        quaternion_guess_eigen.z() = guess.getRotation().z();
+        Eigen::Quaternionf quaternion_transformation(transformation_matrix.block<3, 3>(0, 0));
+
+        double angle = quaternion_guess_eigen.angularDistance(quaternion_transformation);
+        std::cout << "Angle between quaternions: " << angle << " radians" << std::endl;
         // 当前帧到前一帧的变换矩阵
         std::cout << "Final transformation matrix:\n" << transformation_matrix << std::endl;
 #ifdef DEBUG
