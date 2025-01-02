@@ -26,6 +26,8 @@ private:
     pcl::PointCloud<pcl::PointXYZ> global_cloud;
     std::shared_ptr<tf2_ros::TransformListener> transform_listener_;
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    bool add_first = false;
+    bool test_first = false;
     // tf2::Transform camera_T_lidar;
 #ifdef DEBUG
     int debug_index = 0;
