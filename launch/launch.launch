@@ -16,6 +16,6 @@
   <!-- <include file="$(find path_planning)/launch/path_smooth.launch" /> -->
 
   <!-- Launch RViz with the demo configuration -->
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find global_map)/rviz/rviz.rviz" />
+  <node name="global_map" pkg="rviz" type="rviz" args="-d $(find global_map)/rviz/rviz.rviz" />
 
 </launch>
